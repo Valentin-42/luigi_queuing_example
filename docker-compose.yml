@@ -1,0 +1,18 @@
+services:
+  luigi:
+    build: .
+    container_name: luigi_scheduler
+    ports:
+      - "8082:8082"
+    volumes:
+      - .:/app
+    command: ["luigid","--port", "8082"]
+
+  app:
+    build: .
+    container_name: luigi_app
+    depends_on:
+      - luigi
+    volumes:
+      - .:/app
+    command: ["python", "main.py", "--trigger_dir", "./trigger_data"]
