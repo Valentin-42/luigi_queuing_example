@@ -1,7 +1,7 @@
 # luigi_queuing_example
 Luigi Queuing Example
 
-This project demonstrates a simple queuing system using [Luigi](https://github.com/spotify/luigi), a Python module that helps you build complex pipelines of batch jobs. It handles dependency resolution, workflow management, visualization, and more.
+This project demonstrates a simple queuing system using [Luigi](https://luigi.readthedocs.io/en/stable/), a Python module that helps you build complex pipelines of batch jobs. It handles dependency resolution, workflow management, visualization, and more.
 
 ## Overview
 
