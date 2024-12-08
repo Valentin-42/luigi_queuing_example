@@ -1,37 +1,14 @@
 import os
+import queue
 import time
-import argparse
 import luigi
-import datetime
-import logging
+import argparse
 
-# Luigi task for pipeline execution
-class RunPipelineTask(luigi.Task):
-    data_path = luigi.Parameter()
+from multiprocessing import Process
+from task import RunPipelineTask
 
-    def run(self):
-        timestamp = datetime.datetime.now().strftime("%Hh_%Mm_%Ss-%d_%m_%Y")
-        log_file = f"./logs/{timestamp}.log"
-        
-        # Configure the logger
-        logging.basicConfig(
-            filename=log_file,               # Specify the log file name
-            level=logging.INFO,               # Set the logging level to INFO
-            format='%(asctime)s - %(levelname)s - %(message)s'  # Define the log message format
-        )
-        
-        logging.info('Starting a new task...')
-        
-        logging.info(f"Processing data from {self.data_path}...")
 
-        # Simulate long-running pipeline task
-        time.sleep(5)  # Simulate processing delay
-
-        logging.info(f"Pipeline processing complete for {self.data_path}.\n")
-
-    def output(self):
-        return luigi.LocalTarget(f"{self.data_path}/output.txt")
-
+LIFOqueue = queue.LifoQueue(maxsize=3) 
 
 # Function to listen for new files in a directory
 def listen_for_new_data(trigger_dir):
@@ -49,12 +26,25 @@ def listen_for_new_data(trigger_dir):
                 # Mark file as processed
                 processed_files.add(file_path)
 
-                # Run the Luigi pipeline for the new data
-                luigi.build([RunPipelineTask(data_path=file_path)], local_scheduler=False)
-
-                print(f"Pipeline finished for {file_path}, ready for next task.")
-
+                # Add it to the queue
+                LIFOqueue.put(file_path)
+                print(f"Added {file_path} to the queue.")
+                
         time.sleep(2)  # Polling interval
+
+
+def tasks_launcher():
+    """
+    Check the queue for new files and launch a new task for each file.
+    """
+
+    while True:
+        if not LIFOqueue.empty():
+            file_path = LIFOqueue.get()
+            print(f"Processing {file_path}...")
+            luigi.build([RunPipelineTask(data_path=file_path)], local_scheduler=False)
+        else:
+            time.sleep(2)  # Polling interval
 
 
 def create_args_parser():
@@ -68,4 +58,9 @@ if __name__ == "__main__":
     os.makedirs("./logs", exist_ok=True)
     args = create_args_parser()
 
-    listen_for_new_data(trigger_dir=args.trigger_dir)
+    # Start the listener process
+    listener_process = Process(target=listen_for_new_data, args=(args.trigger_dir,))
+    listener_process.start()
+
+    # Start the task launcher
+    tasks_launcher()
